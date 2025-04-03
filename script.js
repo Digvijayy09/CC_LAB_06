@@ -1,37 +1,44 @@
-/* script.js */
-document.addEventListener("DOMContentLoaded", function() {
-    const taskInput = document.getElementById("taskInput");
-    const addTaskBtn = document.getElementById("addTaskBtn");
-    const taskList = document.getElementById("taskList");
+function addExpense() {
+    const expenseName = document.getElementById("expense-name").value;
+    const expenseAmount = document.getElementById("expense-amount").value;
 
-    function renderTask(doc) {
-        let li = document.createElement("li");
-        li.textContent = doc.data().task;
-        li.setAttribute("data-id", doc.id);
-        
-        let deleteBtn = document.createElement("button");
-        deleteBtn.textContent = "Delete";
-        deleteBtn.addEventListener("click", function() {
-            let id = li.getAttribute("data-id");
-            db.collection("tasks").doc(id).delete();
-        });
-        
-        li.appendChild(deleteBtn);
-        taskList.appendChild(li);
+    if (expenseName === "" || expenseAmount === "") {
+        alert("Please fill out all fields.");
+        return;
     }
-    
-    addTaskBtn.addEventListener("click", function() {
-        let task = taskInput.value.trim();
-        if (task) {
-            db.collection("tasks").add({ task });
-            taskInput.value = "";
-        }
-    });
-    
-    db.collection("tasks").onSnapshot(snapshot => {
-        taskList.innerHTML = "";
-        snapshot.docs.forEach(doc => {
-            renderTask(doc);
+
+    db.collection("expenses").add({
+        name: expenseName,
+        amount: parseFloat(expenseAmount),
+        user: auth.currentUser.uid,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        alert("Expense added!");
+        document.getElementById("expense-name").value = "";
+        document.getElementById("expense-amount").value = "";
+        loadExpenses();
+    })
+    .catch(error => console.error("Error adding expense:", error));
+}
+
+function loadExpenses() {
+    document.getElementById("expense-list").innerHTML = "";
+    db.collection("expenses")
+        .where("user", "==", auth.currentUser.uid)
+        .orderBy("timestamp", "desc")
+        .onSnapshot(snapshot => {
+            snapshot.docs.forEach(doc => {
+                const expense = doc.data();
+                const li = document.createElement("li");
+                li.textContent = `${expense.name}: ₹${expense.amount}`;
+                document.getElementById("expense-list").appendChild(li);
+            });
         });
-    });
+}
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        loadExpenses();
+    }
 });
